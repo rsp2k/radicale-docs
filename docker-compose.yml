@@ -1,0 +1,42 @@
+services:
+  docs-dev:
+    build:
+      context: .
+      target: development
+    volumes:
+      - .:/app
+      - /app/node_modules
+    environment:
+      - NODE_ENV=development
+      - HOSTNAME=0.0.0.0  # Required for Next.js-style servers
+    networks:
+      - caddy
+    labels:
+      caddy: radicale-docs.local
+      caddy.reverse_proxy: "{{upstreams 4321}}"
+      # HMR WebSocket configuration for Astro/Vite
+      caddy.reverse_proxy.flush_interval: "-1"
+      caddy.reverse_proxy.transport: "http"
+      caddy.reverse_proxy.transport.read_timeout: "0"
+      caddy.reverse_proxy.transport.write_timeout: "0"
+      caddy.reverse_proxy.transport.keepalive: "5m"
+      caddy.reverse_proxy.stream_timeout: "24h"
+      caddy.reverse_proxy.stream_close_delay: "5s"
+
+  docs-prod:
+    build:
+      context: .
+      target: production
+    ports:
+      - "8080:80"
+    networks:
+      - caddy
+    labels:
+      caddy: docs.radicale.org
+      caddy.reverse_proxy: "{{upstreams 80}}"
+    profiles:
+      - production
+
+networks:
+  caddy:
+    external: true

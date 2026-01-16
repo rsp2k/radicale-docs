@@ -1,0 +1,27 @@
+{
+  "name": "radicale-docs",
+  "type": "module",
+  "version": "0.1.0",
+  "description": "Starlight documentation site for Radicale CalDAV/CardDAV server",
+  "author": {
+    "name": "Ryan Malloy",
+    "email": "ryan@supported.systems"
+  },
+  "scripts": {
+    "dev": "astro dev",
+    "start": "astro dev",
+    "build": "astro check && astro build",
+    "preview": "astro preview",
+    "check": "astro check",
+    "astro": "astro"
+  },
+  "dependencies": {
+    "@astrojs/check": "^0.9.6",
+    "@astrojs/starlight": "^0.37.3",
+    "astro": "^5.16.11",
+    "sharp": "^0.33.5"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.3"
+  }
+}

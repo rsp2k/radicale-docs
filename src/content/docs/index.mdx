@@ -1,0 +1,45 @@
+---
+title: Welcome to Radicale Documentation
+description: CalDAV and CardDAV server documentation
+template: splash
+hero:
+  tagline: A simple CalDAV and CardDAV server with industry-leading RFC compliance
+  image:
+    file: ../../assets/radicale-logo.svg
+  actions:
+    - text: Quick Start
+      link: /getting-started/quick-start/
+      icon: right-arrow
+      variant: primary
+    - text: View on GitHub
+      link: https://github.com/Kozea/Radicale
+      icon: external
+---
+
+import { Card, CardGrid } from '@astrojs/starlight/components';
+
+## Why Radicale?
+
+<CardGrid>
+  <Card title="RFC Compliant" icon="approve-check">
+    85-98% compliance across major CalDAV/CardDAV standards including RFC 3253 (DeltaV versioning), RFC 6638 (Scheduling), and RFC 6047 (iMIP email).
+  </Card>
+  <Card title="Lightweight & Simple" icon="rocket">
+    Easy to install and configure. Runs on any platform with Python 3.9+. Perfect for personal use or small teams.
+  </Card>
+  <Card title="Feature Rich" icon="star">
+    CalDAV scheduling with email notifications, git-backed versioning, WebSocket real-time sync, Prometheus metrics, and LDAP authentication.
+  </Card>
+  <Card title="Open Source" icon="open-book">
+    Free and open source under GPLv3. Active development and community support.
+  </Card>
+</CardGrid>
+
+## Get Started
+
+Choose your learning path:
+
+- **[Quick Start](/getting-started/quick-start/)** - Get a server running in 5 minutes
+- **[Tutorials](/tutorials/first-server/)** - Learn by building your first calendar server
+- **[How-To Guides](/how-to/auth/htpasswd/)** - Task-oriented guides for specific problems
+- **[RFC Compliance](/rfc-compliance/)** - See our industry-leading standards compliance
