@@ -1,0 +1,334 @@
+---
+/**
+ * RFCTable Component
+ *
+ * Displays RFC compliance information in a structured table format.
+ * Shows RFC number, title, compliance percentage, and status badges.
+ *
+ * @example
+ * <RFCTable items={[
+ *   { rfc: "4791", title: "CalDAV", compliance: 95, status: "full" },
+ *   { rfc: "6352", title: "CardDAV", compliance: 90, status: "partial" }
+ * ]} />
+ */
+
+interface RFCItem {
+  rfc: string;
+  title: string;
+  compliance: number;
+  status: 'full' | 'partial' | 'minimal' | 'planned';
+  notes?: string;
+  link?: string;
+}
+
+interface Props {
+  items: RFCItem[];
+  caption?: string;
+}
+
+const { items, caption } = Astro.props;
+
+function getStatusVariant(status: string): string {
+  switch (status) {
+    case 'full': return 'success';
+    case 'partial': return 'note';
+    case 'minimal': return 'caution';
+    case 'planned': return 'tip';
+    default: return 'default';
+  }
+}
+
+function getComplianceColor(compliance: number): string {
+  if (compliance >= 90) return 'var(--sl-color-green)';
+  if (compliance >= 75) return 'var(--sl-color-blue)';
+  if (compliance >= 50) return 'var(--sl-color-orange)';
+  return 'var(--sl-color-red)';
+}
+---
+
+<div class="rfc-table-wrapper">
+  {caption && <p class="rfc-caption">{caption}</p>}
+  <div class="rfc-table-container">
+    <table class="rfc-table">
+      <thead>
+        <tr>
+          <th>RFC</th>
+          <th>Title</th>
+          <th>Compliance</th>
+          <th>Status</th>
+          <th>Notes</th>
+        </tr>
+      </thead>
+      <tbody>
+        {items.map((item) => (
+          <tr>
+            <td class="rfc-number">
+              {item.link ? (
+                <a href={item.link} class="rfc-link">
+                  RFC {item.rfc}
+                </a>
+              ) : (
+                <span>RFC {item.rfc}</span>
+              )}
+            </td>
+            <td class="rfc-title">{item.title}</td>
+            <td class="rfc-compliance">
+              <div class="compliance-wrapper">
+                <div class="compliance-bar">
+                  <div
+                    class="compliance-fill"
+                    style={`width: ${item.compliance}%; background-color: ${getComplianceColor(item.compliance)};`}
+                  />
+                </div>
+                <span class="compliance-text">{item.compliance}%</span>
+              </div>
+            </td>
+            <td class="rfc-status">
+              <span class={`status-badge status-${getStatusVariant(item.status)}`}>
+                {item.status}
+              </span>
+            </td>
+            <td class="rfc-notes">{item.notes || '—'}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<style>
+  .rfc-table-wrapper {
+    margin: 1.5rem 0;
+  }
+
+  .rfc-caption {
+    font-size: var(--sl-text-sm);
+    color: var(--sl-color-gray-3);
+    margin-bottom: 0.75rem;
+    font-style: italic;
+  }
+
+  .rfc-table-container {
+    overflow-x: auto;
+    border-radius: 0.5rem;
+    border: 1px solid var(--sl-color-gray-5);
+    background: var(--sl-color-bg);
+  }
+
+  .rfc-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: var(--sl-text-sm);
+  }
+
+  .rfc-table thead {
+    background: var(--sl-color-gray-6);
+    border-bottom: 2px solid var(--sl-color-gray-5);
+  }
+
+  .rfc-table th {
+    padding: 0.75rem 1rem;
+    text-align: left;
+    font-weight: 600;
+    color: var(--sl-color-white);
+    white-space: nowrap;
+  }
+
+  .rfc-table tbody tr {
+    border-bottom: 1px solid var(--sl-color-gray-6);
+    transition: background-color 0.2s ease;
+  }
+
+  .rfc-table tbody tr:last-child {
+    border-bottom: none;
+  }
+
+  .rfc-table tbody tr:hover {
+    background: var(--sl-color-gray-7);
+  }
+
+  .rfc-table td {
+    padding: 0.75rem 1rem;
+    vertical-align: middle;
+  }
+
+  .rfc-number {
+    font-weight: 600;
+    font-family: var(--sl-font-mono);
+    white-space: nowrap;
+  }
+
+  .rfc-link {
+    color: var(--sl-color-text-accent);
+    text-decoration: none;
+    transition: color 0.2s ease;
+  }
+
+  .rfc-link:hover {
+    color: var(--sl-color-accent);
+    text-decoration: underline;
+  }
+
+  .rfc-title {
+    font-weight: 500;
+    min-width: 150px;
+  }
+
+  .compliance-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    min-width: 150px;
+  }
+
+  .compliance-bar {
+    flex: 1;
+    height: 1.25rem;
+    background: var(--sl-color-gray-6);
+    border-radius: 0.25rem;
+    overflow: hidden;
+    position: relative;
+  }
+
+  .compliance-fill {
+    height: 100%;
+    transition: width 0.3s ease;
+    border-radius: 0.25rem;
+  }
+
+  .compliance-text {
+    font-weight: 600;
+    font-family: var(--sl-font-mono);
+    font-size: var(--sl-text-xs);
+    min-width: 2.5rem;
+    text-align: right;
+  }
+
+  .status-badge {
+    display: inline-block;
+    padding: 0.25rem 0.75rem;
+    border-radius: 0.25rem;
+    font-size: var(--sl-text-xs);
+    font-weight: 600;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+
+  .status-success {
+    background: var(--sl-color-green-high);
+    color: var(--sl-color-green-low);
+  }
+
+  .status-note {
+    background: var(--sl-color-blue-high);
+    color: var(--sl-color-blue-low);
+  }
+
+  .status-caution {
+    background: var(--sl-color-orange-high);
+    color: var(--sl-color-orange-low);
+  }
+
+  .status-tip {
+    background: var(--sl-color-purple-high);
+    color: var(--sl-color-purple-low);
+  }
+
+  .rfc-notes {
+    color: var(--sl-color-gray-3);
+    font-size: var(--sl-text-xs);
+  }
+
+  /* Mobile responsive */
+  @media (max-width: 768px) {
+    .rfc-table {
+      font-size: var(--sl-text-xs);
+    }
+
+    .rfc-table th,
+    .rfc-table td {
+      padding: 0.5rem 0.75rem;
+    }
+
+    .compliance-wrapper {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 0.25rem;
+    }
+
+    .compliance-bar {
+      width: 100%;
+    }
+
+    .compliance-text {
+      text-align: left;
+    }
+
+    /* Stack table on very small screens */
+    @media (max-width: 560px) {
+      .rfc-table thead {
+        display: none;
+      }
+
+      .rfc-table,
+      .rfc-table tbody,
+      .rfc-table tr,
+      .rfc-table td {
+        display: block;
+        width: 100%;
+      }
+
+      .rfc-table tr {
+        margin-bottom: 1rem;
+        border: 1px solid var(--sl-color-gray-5);
+        border-radius: 0.5rem;
+        padding: 0.5rem;
+      }
+
+      .rfc-table td {
+        text-align: left;
+        padding: 0.5rem;
+        border: none;
+        position: relative;
+        padding-left: 45%;
+      }
+
+      .rfc-table td::before {
+        content: attr(data-label);
+        position: absolute;
+        left: 0.5rem;
+        font-weight: 600;
+        color: var(--sl-color-gray-3);
+      }
+
+      .rfc-number::before {
+        content: 'RFC: ';
+      }
+
+      .rfc-title::before {
+        content: 'Title: ';
+      }
+
+      .rfc-compliance::before {
+        content: 'Compliance: ';
+      }
+
+      .rfc-status::before {
+        content: 'Status: ';
+      }
+
+      .rfc-notes::before {
+        content: 'Notes: ';
+      }
+    }
+  }
+
+  /* Dark mode adjustments */
+  :root[data-theme='dark'] .rfc-table thead {
+    background: var(--sl-color-gray-5);
+  }
+
+  :root[data-theme='dark'] .compliance-bar {
+    background: var(--sl-color-gray-5);
+  }
+</style>

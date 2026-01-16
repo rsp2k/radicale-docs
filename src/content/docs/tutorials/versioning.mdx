@@ -1,0 +1,258 @@
+---
+title: Enable Calendar Versioning
+description: Track calendar changes with git-backed version control
+diataxis_type: tutorial
+sidebar:
+  order: 4
+---
+
+import { Steps, Aside } from '@astrojs/starlight/components';
+
+## What You'll Build
+
+By the end of this tutorial, you'll have a Radicale server that automatically commits every calendar change to a git repository. You'll see the version history, restore a deleted event, and use git commands to audit who changed what and when.
+
+<Aside type="note">
+This tutorial takes approximately 20 minutes and assumes you have a working Radicale server and git installed.
+</Aside>
+
+## Prerequisites
+
+- A working Radicale server (from the [first server tutorial](/tutorials/first-server/))
+- Git installed (`git --version` to check)
+- A calendar with at least one event
+
+## Steps
+
+<Steps>
+
+1. **Initialize git repository in storage folder**
+
+   Navigate to your Radicale storage directory and create a git repository:
+
+   ```bash
+   cd ~/.local/share/radicale/collections
+   git init
+   git config user.name "Radicale Server"
+   git config user.email "radicale@localhost"
+   ```
+
+   **You should see:**
+   ```
+   Initialized empty Git repository in .../.local/share/radicale/collections/.git/
+   ```
+
+2. **Create initial commit**
+
+   Commit your existing calendar data:
+
+   ```bash
+   git add -A
+   git commit -m "Initial calendar state"
+   ```
+
+   **You should see:**
+   ```
+   [master (root-commit) abc1234] Initial calendar state
+   X files changed, Y insertions(+)
+   ```
+
+   This captures your calendar's current state as the baseline.
+
+3. **Configure Radicale to auto-commit**
+
+   Open your Radicale configuration:
+
+   ```bash
+   nano ~/.config/radicale/config
+   ```
+
+   Add a hook to the storage section:
+
+   ```ini
+   [storage]
+   filesystem_folder = ~/.local/share/radicale/collections
+   hook = git add -A && (git diff --cached --quiet || git commit -m "Changes by %(user)s")
+   ```
+
+   This hook runs after every storage operation, committing changes if any exist.
+
+4. **Restart Radicale**
+
+   Stop your running Radicale server (Ctrl+C) and start it again:
+
+   ```bash
+   python3 -m radicale --debug
+   ```
+
+   **You should see:**
+   ```
+   Starting Radicale
+   Storage hook configured
+   Listening on 127.0.0.1:5232
+   ```
+
+5. **Make a change to test versioning**
+
+   Add a new event via curl:
+
+   ```bash
+   curl -X PUT 'http://127.0.0.1:5232/personal/versioning-test.ics' \
+     -H 'Content-Type: text/calendar' \
+     -d 'BEGIN:VCALENDAR
+   VERSION:2.0
+   PRODID:-//Versioning Test//EN
+   BEGIN:VEVENT
+   UID:versioning-test-001
+   DTSTART:20260125T140000Z
+   DTEND:20260125T150000Z
+   SUMMARY:Test Event for Versioning
+   END:VEVENT
+   END:VCALENDAR'
+   ```
+
+   **You should see:**
+   In the Radicale debug output, a log line showing the hook executed.
+
+6. **Verify the auto-commit**
+
+   Check the git log:
+
+   ```bash
+   cd ~/.local/share/radicale/collections
+   git log --oneline -5
+   ```
+
+   **You should see:**
+   ```
+   abc1235 Changes by anonymous
+   abc1234 Initial calendar state
+   ```
+
+   The new commit captures your event creation.
+
+   <Aside type="note">
+   The user shows as "anonymous" because authentication is disabled. With authentication enabled, you'd see actual usernames.
+   </Aside>
+
+7. **View the change details**
+
+   See what changed in the latest commit:
+
+   ```bash
+   git show HEAD
+   ```
+
+   **You should see:**
+   ```diff
+   +++ b/personal/versioning-test.ics
+   +BEGIN:VCALENDAR
+   +VERSION:2.0
+   ...
+   ```
+
+   The full event content appears as a git diff.
+
+8. **Delete an event and restore it**
+
+   Delete the test event:
+
+   ```bash
+   curl -X DELETE 'http://127.0.0.1:5232/personal/versioning-test.ics'
+   ```
+
+   Verify it's gone:
+
+   ```bash
+   ls ~/.local/share/radicale/collections/personal/versioning-test.ics
+   ```
+
+   **You should see:**
+   ```
+   No such file or directory
+   ```
+
+   Now check the git log:
+
+   ```bash
+   git log --oneline -5
+   ```
+
+   **You should see:**
+   A new commit recording the deletion.
+
+9. **Restore the deleted event**
+
+   Use git to bring back the event:
+
+   ```bash
+   git checkout HEAD~1 -- personal/versioning-test.ics
+   git commit -m "Restored deleted event"
+   ```
+
+   **You should see:**
+   ```
+   [master abc1237] Restored deleted event
+   ```
+
+   The event file reappears in the filesystem. Access it via CalDAV:
+
+   ```bash
+   curl http://127.0.0.1:5232/personal/versioning-test.ics
+   ```
+
+   **You should see:**
+   Your event's VCALENDAR content.
+
+10. **Explore the version history**
+
+    See all changes to a specific calendar:
+
+    ```bash
+    git log --oneline -- personal/
+    ```
+
+    **You should see:**
+    Every commit affecting the personal calendar.
+
+    View changes over time:
+
+    ```bash
+    git log --stat --oneline
+    ```
+
+    This shows which files changed in each commit.
+
+</Steps>
+
+## Try It Out
+
+Connect your calendar client and make several changes - create events, modify them, delete them. After each action, check `git log` in your storage directory. You'll see every modification captured with timestamps. Try examining a specific file's history:
+
+```bash
+git log --follow -p personal/versioning-test.ics
+```
+
+This shows the complete change history for a single event, even if it was deleted and restored.
+
+## What You've Learned
+
+You now have a Radicale server that treats your calendar data as code, automatically versioning every change in git. You've seen how to audit changes, restore deleted data, and use standard git tools to understand calendar history. This foundation enables powerful workflows like automated backups, change notifications, and compliance auditing.
+
+## Next Steps
+
+- [Set up version labels](/how-to/versioning/labels/) to tag important changes
+- [Query version history](/how-to/versioning/activities/) via CalDAV protocol
+- [Configure remote backup](/how-to/versioning/enable/#remote-backup) by pushing to a git server
+- Learn [when versioning is worth the complexity](/explanations/when-versioning/)
+
+## Enhance the Hook
+
+For production use, improve the commit message to include more context:
+
+```ini
+[storage]
+hook = git add -A && (git diff --cached --quiet || git commit -m "%(request)s by %(user)s at $(date -Iseconds)" --author="%(user)s <%(user)s@localhost>")
+```
+
+This captures the HTTP method (PUT, DELETE), username, and timestamp in every commit.

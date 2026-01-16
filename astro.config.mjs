@@ -31,9 +31,13 @@ export default defineConfig({
         src: './src/assets/radicale-logo.svg',
       },
 
-      social: {
-        github: 'https://github.com/Kozea/Radicale',
-      },
+      social: [
+        {
+          icon: 'github',
+          label: 'GitHub',
+          href: 'https://github.com/Kozea/Radicale',
+        },
+      ],
 
       sidebar: [
         {

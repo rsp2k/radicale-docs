@@ -1,0 +1,214 @@
+---
+title: Radicale Architecture
+description: Understanding the design principles and structure of Radicale
+diataxis_type: explanation
+sidebar:
+  order: 1
+---
+
+import { Card, CardGrid, Aside } from '@astrojs/starlight/components';
+
+## Understanding Radicale's Design
+
+Radicale's architecture reflects a fundamental tension in CalDAV server design: simplicity versus features. Most CalDAV servers assume enterprise deployment with database backends, complex caching, and multi-process architectures. Radicale inverts these assumptions, prioritizing transparency, simplicity, and ease of deployment.
+
+Understanding this architectural philosophy explains design decisions that might otherwise seem unusual.
+
+## Core Design Principles
+
+<CardGrid>
+  <Card title="File-Based Storage" icon="document">
+    Collections are folders, items are files. No database, no hidden state. Everything is visible and accessible with standard Unix tools.
+  </Card>
+  <Card title="Pluggable Architecture" icon="puzzle">
+    Each subsystem (authentication, storage, rights, web) uses plugins. Customization without forking. New backends without touching core code.
+  </Card>
+  <Card title="Stateless Request Handling" icon="random">
+    Each HTTP request is independent. No session state between requests. This simplifies scaling but requires careful synchronization.
+  </Card>
+  <Card title="Transparency Over Performance" icon="open-book">
+    Design choices favor debuggability and understanding over raw speed. When tradeoffs arise, Radicale chooses the option that's easier to understand and troubleshoot.
+  </Card>
+</CardGrid>
+
+## The File-Based Storage Decision
+
+Most CalDAV servers store calendar data in databases (PostgreSQL, MySQL, SQLite). Radicale stores each calendar item as an individual `.ics` or `.vcf` file in a directory hierarchy. This choice creates cascading consequences throughout the system.
+
+### What This Enables
+
+**Immediate Transparency**: Opening a calendar folder shows every event as a readable file. No SQL queries, no export tools, no proprietary formats. Using `cat`, `grep`, `diff` reveals everything.
+
+**Natural Version Control**: Because items are files, standard version control systems work immediately. Git integration becomes a configuration option rather than a complex feature requiring custom implementation.
+
+**Standard Tools for Operations**: Backup uses `rsync`. Searching uses `grep`. Copying calendars is `cp -r`. System administrators already know these tools. No special Radicale-specific operational knowledge required.
+
+**Debugging Visibility**: When something breaks, looking at files shows the state. No need to connect to databases, parse binary formats, or trust caching layers. The storage format is the debugging interface.
+
+### What This Costs
+
+**Performance at Scale**: File-based storage is slower than optimized database queries for large collections. Opening 10,000 individual files to find events in a date range performs worse than a SQL query with proper indexes.
+
+**Concurrency Limitations**: The `.Radicale.lock` file prevents concurrent writes. Under heavy concurrent load, this creates a bottleneck. Database systems handle concurrent writes more efficiently.
+
+**No Complex Queries**: Finding "all events where attendee includes X" requires reading all files. Databases enable indexed queries across collections. File-based storage makes cross-collection queries impractical.
+
+<Aside type="note">
+These tradeoffs reflect the target use case: personal calendars and small teams where transparency matters more than serving thousands of concurrent users. Choosing Radicale means accepting these limits in exchange for operational simplicity.
+</Aside>
+
+## The Plugin System
+
+Radicale separates concerns through plugins. Each subsystem presents a defined interface. Implementations can swap without affecting other components.
+
+```
+HTTP Request
+    ↓
+Auth Plugin ──→ Authenticates user
+    ↓
+Rights Plugin ──→ Authorizes access
+    ↓
+Storage Plugin ──→ Reads/writes data
+    ↓
+HTTP Response
+```
+
+This separation creates clear boundaries:
+
+- **Authentication** doesn't know storage format
+- **Storage** doesn't handle authorization
+- **Rights** don't parse calendar data
+- **Web interface** doesn't implement protocol logic
+
+### Why This Matters
+
+Plugin boundaries make testing simpler. Each plugin can be tested independently with mock implementations of other components. Authentication tests don't need real storage. Storage tests don't need real authentication.
+
+The boundaries also enable customization. Organizations can implement custom authentication against their user directory without touching storage code. Custom storage backends can serve data from object stores or databases without reimplementing CalDAV protocol handling.
+
+### The Coordination Cost
+
+Plugin separation creates integration challenges when components need to share state. Consider scheduling: the storage plugin needs to trigger iTIP message generation, which requires authentication context, which needs access to rights information. The clean separation becomes complex when features span boundaries.
+
+This explains why advanced features like CalDAV scheduling took longer to implement. The plugin architecture optimizes for independence, making cross-plugin features harder to coordinate.
+
+## Stateless Request Handling
+
+Each HTTP request to Radicale is independent. No session cookies, no shared state between requests, no connection pooling assumptions. This design simplifies scaling and deployment but requires client cooperation for synchronization.
+
+### Synchronization Implications
+
+Clients must use sync tokens or ETags to detect changes. The server maintains no session state showing "what this client has seen before." Every sync operation requires:
+
+1. Client sends last-known sync token
+2. Server checks cached state in `.Radicale.cache/` directories
+3. Server returns changes since that token
+4. Server generates new sync token
+
+This stateless approach means multiple client connections don't interfere, but it requires careful cache management to avoid full collection scans on every sync.
+
+### Why WebSocket Support Matters
+
+The stateless HTTP model creates polling inefficiency. Clients must repeatedly ask "anything new?" even when nothing changed. WebSocket connections provide stateful real-time updates, inverting the polling model. The server pushes changes when they occur.
+
+WebSocket support (added in Radicale 3.5.0) represents the first significant departure from pure stateless design. Maintaining WebSocket connections requires tracking active clients and their subscription state. This architectural shift enables better mobile client battery life and faster sync, but increases server complexity.
+
+## Historical Context
+
+Radicale emerged in 2008 when CalDAV was new. Early CalDAV servers targeted enterprise deployment:
+
+- **Chandler Server**: Complex, database-backed, designed for thousands of users
+- **Darwin Calendar Server** (now CalendarServer): Apple's server, focused on OS X Server integration
+- **Citadel**: Full groupware suite with email, calendars, and more
+
+Radicale addressed a different need: personal calendar servers and small team deployments where simplicity mattered more than enterprise features. This context explains why certain features common in enterprise CalDAV servers were missing from early Radicale versions.
+
+Multi-tenancy, for example, only appeared in Radicale 3.5.0 (2026). The original architecture assumed single-tenant deployment where all users had equal visibility (controlled by rights plugins). Enterprise multi-tenant isolation wasn't a priority.
+
+## Design Tensions
+
+### Simplicity vs Features
+
+Every feature addition faces evaluation against Radicale's simplicity goal. Recent features illustrate different positions on this spectrum:
+
+**Git Versioning**: Accepted because it leverages external tools (git) rather than implementing custom version control. Adds complexity in configuration but provides obvious value using standard tooling.
+
+**CalDAV Scheduling**: Accepted despite significant complexity because it's a core CalDAV standard (RFC 6638). The protocol demands it. Implementation required careful plugin coordination.
+
+**WebSocket Sync**: Accepted despite breaking stateless design principle because mobile device battery life and sync speed are increasingly important. The utility justified the architectural shift.
+
+**Multi-Tenancy**: Initially rejected as too complex, eventually accepted with configuration flags to maintain simple default behavior. Complexity is opt-in.
+
+### Correctness vs Performance
+
+File-based locking ensures data integrity but limits concurrent write performance. This reflects a philosophical choice: prefer correctness over theoretical maximum throughput.
+
+Cache files in `.Radicale.cache/` directories improve sync performance but add complexity. The caching system represents a pragmatic compromise: accept some complexity to make sync practical for real-world collection sizes.
+
+Sync tokens avoid full collection scans but require careful cache invalidation. Getting caching wrong causes data corruption or stale responses. Radicale chooses conservative cache invalidation - more disk I/O, but less risk of serving stale data.
+
+## The Storage Hook System
+
+The `hook` configuration option in the `[storage]` section executes shell commands after storage operations. This simple mechanism enables powerful integrations without adding code to Radicale.
+
+### Why Hooks Matter
+
+Hooks externalize functionality that would otherwise require plugin development:
+
+- **Version control**: Execute git commands to commit changes
+- **Backup triggers**: Signal backup systems after modifications
+- **Audit logging**: Record operations to external audit systems
+- **Notification pipelines**: Trigger external event processors
+
+The hook system reflects Unix philosophy: small programs doing one thing well, combined through simple interfaces. Radicale handles CalDAV protocol. External tools handle version control, backup, notification.
+
+### The Coordination Challenge
+
+Hooks run synchronously. The HTTP response waits for hook completion. Slow hooks (like pushing to remote git repositories) delay responses. This creates a tension: hooks are powerful but can impact performance.
+
+The hook system lacks sophisticated error handling. If a hook fails, the storage operation completes anyway. This ensures data writes succeed even if downstream processing fails, but means hooks can't veto operations.
+
+## When This Architecture Fits
+
+Understanding Radicale's architecture helps evaluate fit for specific use cases:
+
+### Good Fit Scenarios
+
+**Personal Calendar Servers**: The file-based design makes backup, migration, and debugging trivial. Synchronization patterns (occasional syncs from few devices) don't stress concurrency limits.
+
+**Small Team Deployments**: Up to 50 users with moderate calendar complexity work well. File-based storage performs adequately, and operational simplicity reduces administrative burden.
+
+**Development and Testing**: The transparent storage format makes testing and debugging easy. Developers can inspect state directly without database tools.
+
+**Educational Environments**: Learning CalDAV concepts benefits from seeing the actual protocol exchanges and storage format. Radicale's transparency serves pedagogy.
+
+### Poor Fit Scenarios
+
+**Large Enterprise Deployment**: Hundreds or thousands of concurrent users stress the locking mechanism. Database-backed servers (DAViCal, Baikal with SQL) handle this better.
+
+**Complex Search Requirements**: Finding events across many calendars using sophisticated queries performs poorly with file-based storage. Database indexing enables efficient cross-collection queries.
+
+**High-Frequency Automation**: Systems that programmatically create/modify thousands of events daily will hit performance limits. The file-per-item model creates overhead.
+
+<Aside type="tip">
+If you value operational simplicity, transparency, and debuggability more than raw performance, Radicale's architecture serves you well. If you need database-level performance for many concurrent users, consider alternatives like DAViCal or Baikal. The choice depends on priorities, not absolute technical superiority.
+</Aside>
+
+## Architectural Evolution
+
+Recent versions show evolution while maintaining core principles:
+
+**Radicale 3.3.0 (2023)**: Added Prometheus metrics. This integrates standard observability tools without custom monitoring infrastructure. Maintains the "use external tools" philosophy.
+
+**Radicale 3.4.0 (2024)**: Added CalDAV scheduling support. This represents increased protocol complexity in exchange for standard compliance. Scheduling requires iTIP message generation, email delivery, and attendee response processing.
+
+**Radicale 3.5.0 (2026)**: Added WebSocket real-time sync, multi-tenancy, and DeltaV versioning. These features increase complexity but address modern deployment needs. The architecture accommodates new features while preserving file-based storage and plugin structure.
+
+The evolution shows pragmatic adaptation: core principles (file-based storage, plugin architecture) remain stable while new features address real-world requirements.
+
+## Related Concepts
+
+- [Understanding CalDAV Protocol](/explanations/caldav/) - How the protocol itself shapes server design
+- [When to Use Versioning](/explanations/when-versioning/) - Evaluating tradeoffs of git integration
+- [How CalDAV Scheduling Works](/explanations/scheduling/) - Understanding the scheduling architecture
+- [Storage Layout Reference](/reference/storage/) - Technical details of file-based storage structure

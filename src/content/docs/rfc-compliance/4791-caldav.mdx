@@ -1,0 +1,451 @@
+---
+title: RFC 4791 - CalDAV (Calendaring Extensions to WebDAV)
+description: Complete implementation of CalDAV core features with 90% RFC compliance
+---
+
+import { Card, CardGrid } from '@astrojs/starlight/components';
+import { Aside } from '@astrojs/starlight/components';
+
+## Overview
+
+RFC 4791 defines **Calendaring Extensions to WebDAV (CalDAV)**, enabling calendar access and management through the WebDAV protocol. Radicale implements the core CalDAV specification with excellent compliance, supporting calendar creation, queries, and synchronization.
+
+**Compliance Level**: ~90% (core features complete, minor edge cases)
+
+## What's Implemented
+
+### Calendar Collection Management ✅
+
+<CardGrid>
+  <Card title="MKCALENDAR" icon="add-document">
+    Create calendar collections with custom properties like display name, color, and timezone.
+  </Card>
+
+  <Card title="Calendar Properties" icon="seti:config">
+    All standard calendar properties: `calendar-description`, `calendar-timezone`, `supported-calendar-component-set`, etc.
+  </Card>
+
+  <Card title="Component Types" icon="list-format">
+    Support for VEVENT, VTODO, VJOURNAL, VFREEBUSY components in calendar collections.
+  </Card>
+</CardGrid>
+
+### Calendar Queries ✅
+
+<CardGrid>
+  <Card title="calendar-query REPORT" icon="magnifier">
+    Filter calendar events by date range, component type, properties, and text search.
+  </Card>
+
+  <Card title="calendar-multiget REPORT" icon="list-format">
+    Efficiently retrieve multiple calendar events in a single request by href.
+  </Card>
+
+  <Card title="free-busy-query REPORT" icon="seti:clock">
+    Query free/busy information for scheduling with time range filtering.
+  </Card>
+</CardGrid>
+
+### iCalendar Support ✅
+
+- ✅ **VEVENT** - Calendar events with recurrence support
+- ✅ **VTODO** - Tasks and to-do items
+- ✅ **VJOURNAL** - Journal entries
+- ✅ **VFREEBUSY** - Free/busy time information
+- ✅ **VTIMEZONE** - Timezone definitions
+- ✅ **VALARM** - Event/task reminders
+
+### Timezone Handling ✅
+
+- ✅ **VTIMEZONE components** - Full timezone definition support
+- ✅ **Timezone-by-reference** - RFC 7809 timezone distribution
+- ✅ **Server-provided timezones** - Standard timezone database
+- ✅ **Timezone conversion** - Automatic conversion for queries
+
+### Recurrence Rules ✅
+
+- ✅ **RRULE** - Recurrence rule parsing and evaluation
+- ✅ **RDATE/EXDATE** - Inclusion/exclusion dates
+- ✅ **RECURRENCE-ID** - Individual instance modifications
+- ✅ **Complex patterns** - Daily, weekly, monthly, yearly recurrence
+- ✅ **Recurrence expansion** - Automatic expansion for queries
+
+### Calendar Synchronization ✅
+
+- ✅ **CTag (ctag)** - Collection-level change token
+- ✅ **ETag** - Resource-level change token
+- ✅ **sync-collection REPORT** - RFC 6578 efficient synchronization
+- ✅ **Conditional operations** - If-Match, If-None-Match headers
+
+## What's Not Implemented
+
+<Aside type="caution">
+Some RFC 4791 features have minor gaps or are not implemented:
+
+- ⚠️ **Some edge cases** - Complex recurrence rule edge cases may not be fully supported
+- ⚠️ **ATTACH handling** - Basic support only (but RFC 8607 managed attachments are fully implemented)
+- ⚠️ **Some exotic properties** - Rarely-used iCalendar properties may have limited support
+
+These gaps are minor and don't affect typical CalDAV client usage.
+</Aside>
+
+## Key Features
+
+### MKCALENDAR Method
+
+Create calendar collections with the MKCALENDAR method:
+
+```bash
+# Create calendar with properties
+curl -X MKCALENDAR \
+  -u alice:password \
+  -H "Content-Type: application/xml" \
+  -d '<?xml version="1.0" encoding="utf-8"?>
+      <C:mkcalendar xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:caldav">
+        <D:set>
+          <D:prop>
+            <D:displayname>Work Calendar</D:displayname>
+            <C:calendar-description>My work events</C:calendar-description>
+            <C:calendar-timezone>America/New_York</C:calendar-timezone>
+            <C:supported-calendar-component-set>
+              <C:comp name="VEVENT"/>
+              <C:comp name="VTODO"/>
+            </C:supported-calendar-component-set>
+          </D:prop>
+        </D:set>
+      </C:mkcalendar>' \
+  https://server/alice/work.ics/
+```
+
+### calendar-query REPORT
+
+Query calendar events with filters:
+
+```bash
+# Find events in date range
+curl -X REPORT \
+  -u alice:password \
+  -H "Content-Type: application/xml" \
+  -d '<?xml version="1.0" encoding="utf-8"?>
+      <C:calendar-query xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:caldav">
+        <D:prop>
+          <D:getetag/>
+          <C:calendar-data/>
+        </D:prop>
+        <C:filter>
+          <C:comp-filter name="VCALENDAR">
+            <C:comp-filter name="VEVENT">
+              <C:time-range start="20250101T000000Z" end="20250131T235959Z"/>
+            </C:comp-filter>
+          </C:comp-filter>
+        </C:filter>
+      </C:calendar-query>' \
+  https://server/alice/calendar.ics/
+```
+
+### calendar-multiget REPORT
+
+Efficiently retrieve multiple events:
+
+```bash
+# Get multiple events by href
+curl -X REPORT \
+  -u alice:password \
+  -H "Content-Type: application/xml" \
+  -d '<?xml version="1.0" encoding="utf-8"?>
+      <C:calendar-multiget xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:caldav">
+        <D:prop>
+          <D:getetag/>
+          <C:calendar-data/>
+        </D:prop>
+        <D:href>/alice/calendar.ics/event-1.ics</D:href>
+        <D:href>/alice/calendar.ics/event-2.ics</D:href>
+        <D:href>/alice/calendar.ics/event-3.ics</D:href>
+      </C:calendar-multiget>' \
+  https://server/alice/calendar.ics/
+```
+
+### free-busy-query REPORT
+
+Query free/busy information for scheduling:
+
+```bash
+# Check availability
+curl -X REPORT \
+  -u alice:password \
+  -H "Content-Type: application/xml" \
+  -d '<?xml version="1.0" encoding="utf-8"?>
+      <C:free-busy-query xmlns:C="urn:ietf:params:xml:ns:caldav">
+        <C:time-range start="20250116T080000Z" end="20250116T170000Z"/>
+      </C:free-busy-query>' \
+  https://server/alice/calendar.ics/
+```
+
+## Calendar Properties
+
+PROPFIND returns CalDAV-specific properties:
+
+| Property | Description |
+|----------|-------------|
+| `calendar-description` | Human-readable calendar description |
+| `calendar-timezone` | Default timezone for calendar |
+| `supported-calendar-component-set` | Supported component types (VEVENT, VTODO, etc.) |
+| `supported-calendar-data` | Supported media types (text/calendar) |
+| `max-resource-size` | Maximum size of calendar object |
+| `min-date-time` | Earliest supported date/time |
+| `max-date-time` | Latest supported date/time |
+| `max-instances` | Maximum recurrence instances |
+| `max-attendees-per-instance` | Maximum attendees per event |
+
+### Query Properties Example
+
+```bash
+curl -X PROPFIND \
+  -u alice:password \
+  -H "Depth: 0" \
+  -H "Content-Type: application/xml" \
+  -d '<?xml version="1.0" encoding="utf-8"?>
+      <D:propfind xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:caldav">
+        <D:prop>
+          <D:displayname/>
+          <C:calendar-description/>
+          <C:calendar-timezone/>
+          <C:supported-calendar-component-set/>
+        </D:prop>
+      </D:propfind>' \
+  https://server/alice/calendar.ics/
+```
+
+## Advanced Filtering
+
+### Component Filters
+
+Filter by component type:
+
+```xml
+<C:comp-filter name="VCALENDAR">
+  <C:comp-filter name="VEVENT">
+    <!-- VEVENT filters -->
+  </C:comp-filter>
+</C:comp-filter>
+```
+
+```xml
+<C:comp-filter name="VCALENDAR">
+  <C:comp-filter name="VTODO">
+    <!-- VTODO filters -->
+  </C:comp-filter>
+</C:comp-filter>
+```
+
+### Property Filters
+
+Filter by property values:
+
+```xml
+<C:comp-filter name="VCALENDAR">
+  <C:comp-filter name="VEVENT">
+    <C:prop-filter name="SUMMARY">
+      <C:text-match>Meeting</C:text-match>
+    </C:prop-filter>
+  </C:comp-filter>
+</C:comp-filter>
+```
+
+### Time Range Filters
+
+Filter by date/time range:
+
+```xml
+<C:comp-filter name="VCALENDAR">
+  <C:comp-filter name="VEVENT">
+    <C:time-range start="20250101T000000Z" end="20250131T235959Z"/>
+  </C:comp-filter>
+</C:comp-filter>
+```
+
+### Combining Filters
+
+Combine multiple filter types:
+
+```xml
+<C:filter>
+  <C:comp-filter name="VCALENDAR">
+    <C:comp-filter name="VEVENT">
+      <C:time-range start="20250101T000000Z" end="20250131T235959Z"/>
+      <C:prop-filter name="SUMMARY">
+        <C:text-match collation="i;unicode-casemap">team</C:text-match>
+      </C:prop-filter>
+      <C:prop-filter name="STATUS">
+        <C:text-match>CONFIRMED</C:text-match>
+      </C:prop-filter>
+    </C:comp-filter>
+  </C:comp-filter>
+</C:filter>
+```
+
+## Synchronization
+
+### Collection Change Token (CTag)
+
+The `getctag` property indicates when a collection has changed:
+
+```bash
+# Get collection ctag
+curl -X PROPFIND \
+  -u alice:password \
+  -H "Depth: 0" \
+  -H "Content-Type: application/xml" \
+  -d '<?xml version="1.0" encoding="utf-8"?>
+      <D:propfind xmlns:D="DAV:" xmlns:CS="http://calendarserver.org/ns/">
+        <D:prop>
+          <CS:getctag/>
+        </D:prop>
+      </D:propfind>' \
+  https://server/alice/calendar.ics/
+```
+
+Clients can cache the ctag and only sync when it changes.
+
+### Resource ETags
+
+Each resource has an ETag for change detection:
+
+```bash
+# Get resource ETag
+curl -I -u alice:password \
+  https://server/alice/calendar.ics/event.ics
+
+# Response includes:
+# ETag: "abc123def456"
+```
+
+Use ETags with `If-Match` and `If-None-Match` for conditional operations:
+
+```bash
+# Only update if ETag matches
+curl -X PUT \
+  -u alice:password \
+  -H "If-Match: \"abc123def456\"" \
+  -H "Content-Type: text/calendar" \
+  -d @event.ics \
+  https://server/alice/calendar.ics/event.ics
+```
+
+### sync-collection REPORT (RFC 6578)
+
+Efficient synchronization using sync tokens:
+
+```bash
+# Initial sync
+curl -X REPORT \
+  -u alice:password \
+  -H "Content-Type: application/xml" \
+  -d '<?xml version="1.0" encoding="utf-8"?>
+      <D:sync-collection xmlns:D="DAV:">
+        <D:sync-token/>
+        <D:sync-level>1</D:sync-level>
+        <D:prop>
+          <D:getetag/>
+        </D:prop>
+      </D:sync-collection>' \
+  https://server/alice/calendar.ics/
+```
+
+Response includes sync token for subsequent incremental syncs.
+
+## Use Cases
+
+<CardGrid>
+  <Card title="Calendar Management" icon="seti:clock">
+    Create, organize, and manage multiple calendars for different purposes (work, personal, family).
+  </Card>
+
+  <Card title="Event Scheduling" icon="approve-check">
+    Schedule events with recurrence rules, timezones, and reminders.
+  </Card>
+
+  <Card title="Task Lists" icon="list-format">
+    Manage to-do lists with VTODO components, priorities, and due dates.
+  </Card>
+
+  <Card title="Client Sync" icon="refresh">
+    Synchronize calendars with desktop and mobile clients using standard CalDAV protocol.
+  </Card>
+
+  <Card title="Free/Busy Queries" icon="magnifier">
+    Check availability for scheduling meetings and appointments.
+  </Card>
+
+  <Card title="Calendar Sharing" icon="star">
+    Share calendars with other users using Radicale's rights management.
+  </Card>
+</CardGrid>
+
+## Client Compatibility
+
+Radicale's RFC 4791 implementation is compatible with all major CalDAV clients:
+
+### Desktop Clients
+
+- ✅ **Mozilla Thunderbird** - Full support via Lightning/native calendar
+- ✅ **Apple Calendar** - Complete macOS/iOS integration
+- ✅ **Evolution** - GNOME calendar client
+- ✅ **GNOME Calendar** - Modern Linux calendar
+- ✅ **KOrganizer** - KDE calendar application
+
+### Mobile Clients
+
+- ✅ **Apple Calendar** - Native iOS support
+- ✅ **DAVx⁵** - Android CalDAV/CardDAV sync
+- ✅ **ICSx⁵** - Android calendar subscription
+- ✅ **CalDAV-Sync** - Android CalDAV client
+
+### Web Clients
+
+- ✅ **Radicale Web UI** - Built-in web interface
+- ✅ **InfCloud** - Third-party web calendar
+- ✅ **AgenDAV** - Web-based calendar interface
+
+## Testing & Validation
+
+Radicale's RFC 4791 implementation is thoroughly tested:
+
+- ✅ **Comprehensive test suite** - Core CalDAV operations validated
+- ✅ **Query tests** - calendar-query, multiget, free-busy tested
+- ✅ **Recurrence tests** - Complex recurrence patterns validated
+- ✅ **Timezone tests** - Timezone handling and conversion
+- ✅ **Client compatibility** - Tested with major CalDAV clients
+- ✅ **Continuous integration** - Automated testing on every commit
+
+## Learn More
+
+<CardGrid>
+  <Card title="Tutorial: First Calendar Server" icon="rocket">
+    Build your first CalDAV server from scratch.
+
+    [Start tutorial →](/tutorials/first-server/)
+  </Card>
+
+  <Card title="Explanation: How CalDAV Works" icon="information">
+    Understand the CalDAV protocol and how Radicale implements it.
+
+    [Learn more →](/explanations/caldav/)
+  </Card>
+
+  <Card title="Reference: Configuration" icon="seti:config">
+    Configure calendar-specific options in Radicale.
+
+    [View reference →](/reference/configuration/)
+  </Card>
+
+  <Card title="RFC 6638: Scheduling" icon="star">
+    Extend your CalDAV server with scheduling capabilities.
+
+    [View compliance →](/rfc-compliance/6638-scheduling/)
+  </Card>
+</CardGrid>
+
+<Aside type="tip">
+Radicale's CalDAV implementation forms the foundation for advanced features like scheduling (RFC 6638), managed attachments (RFC 8607), and versioning (RFC 3253).
+</Aside>

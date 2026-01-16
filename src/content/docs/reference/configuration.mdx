@@ -1,0 +1,450 @@
+---
+title: Configuration Options
+description: Complete reference of all Radicale configuration parameters
+diataxis_type: reference
+sidebar:
+  order: 1
+---
+
+import { LinkCard } from '@astrojs/starlight/components';
+
+## Overview
+
+Radicale configuration uses INI format with sections for each subsystem. Options are specified as `key = value` pairs. Configuration files are loaded from multiple locations in order, with later files overriding earlier ones.
+
+## Configuration File Locations
+
+Radicale searches for configuration files in this order:
+
+1. `/etc/radicale/config` (system-wide)
+2. `~/.config/radicale/config` (user-specific)
+3. Path specified via `--config` flag
+4. Path specified via `RADICALE_CONFIG` environment variable
+
+Multiple configuration files can be specified with `:` separator (`;` on Windows). Prefix a path with `?` to make it optional.
+
+**Example:**
+```bash
+RADICALE_CONFIG="/etc/radicale/config:?/home/user/.radicale/config"
+```
+
+## Syntax
+
+### Basic Format
+
+```ini
+[section]
+option = value
+```
+
+### Comments
+
+```ini
+# This is a comment
+; This is also a comment (semicolon style)
+```
+
+### Multi-line Values
+
+```ini
+option = first line
+    continuation line
+    another continuation line
+```
+
+### Environment Variable Substitution
+
+```ini
+option = %(ENV_VAR_NAME)s
+```
+
+## Sections
+
+### `[server]`
+
+Controls HTTP server behavior.
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `hosts` | string | `127.0.0.1:5232` | Addresses and ports to bind. Separate multiple with comma. IPv6 addresses use brackets: `[::]:5232` |
+| `max_connections` | integer | `20` | Maximum concurrent connections. Applies only to built-in server. |
+| `max_content_length` | integer | `100000000` | Maximum request body size in bytes (100MB default) |
+| `timeout` | integer | `30` | Socket timeout in seconds |
+| `ssl` | boolean | `False` | Enable HTTPS |
+| `certificate` | string | `/etc/ssl/radicale.cert.pem` | Path to SSL certificate file |
+| `key` | string | `/etc/ssl/radicale.key.pem` | Path to SSL private key file |
+| `certificate_authority` | string | | Path to CA certificate for client certificate verification |
+| `protocol` | string | `PROTOCOL_TLS` | SSL protocol version. Options: `PROTOCOL_TLS`, `PROTOCOL_TLSv1_2`, `PROTOCOL_TLSv1_3` |
+| `ciphers` | string | | OpenSSL cipher string. Empty uses defaults. |
+
+**Example:**
+
+```ini
+[server]
+hosts = 0.0.0.0:5232, [::]:5232
+max_connections = 50
+timeout = 60
+ssl = True
+certificate = /etc/ssl/certs/radicale.pem
+key = /etc/ssl/private/radicale.key
+```
+
+### `[encoding]`
+
+Controls character encoding.
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `request` | string | `utf-8` | Encoding for request bodies |
+| `stock` | string | `utf-8` | Encoding for internal storage |
+
+**Example:**
+
+```ini
+[encoding]
+request = utf-8
+stock = utf-8
+```
+
+### `[auth]`
+
+Controls authentication mechanism.
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `type` | string | `denyall` | Authentication backend. Options: `none`, `denyall`, `htpasswd`, `ldap`, `imap`, `http_x_remote_user`, `oauth2`, `dovecot`, `pam` |
+| `delay` | integer | `1` | Delay in seconds after failed authentication attempt |
+
+#### Authentication Type: `htpasswd`
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `htpasswd_filename` | string | `/etc/radicale/users` | Path to htpasswd file |
+| `htpasswd_encryption` | string | `bcrypt` | Password encryption method. Options: `plain`, `sha1`, `ssha`, `crypt`, `bcrypt`, `md5` |
+
+#### Authentication Type: `ldap`
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `ldap_uri` | string | `ldap://localhost:389` | LDAP server URI |
+| `ldap_base` | string | | Base DN for user search |
+| `ldap_reader_dn` | string | | DN for bind user (optional) |
+| `ldap_reader_password` | string | | Password for bind user (optional) |
+| `ldap_filter` | string | `(uid=%(username)s)` | LDAP filter for user lookup |
+| `ldap_attribute` | string | `uid` | Attribute containing username |
+| `ldap_scope` | string | `subtree` | Search scope. Options: `base`, `onelevel`, `subtree` |
+
+#### Authentication Type: `imap`
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `imap_host` | string | `localhost` | IMAP server hostname |
+| `imap_port` | integer | `143` | IMAP server port |
+| `imap_secure` | boolean | `False` | Use IMAPS (SSL/TLS) |
+
+#### Authentication Type: `oauth2`
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `oauth2_provider` | string | | Provider name. Options: `google`, `generic` |
+| `oauth2_client_id` | string | | OAuth2 client ID |
+| `oauth2_client_secret` | string | | OAuth2 client secret |
+| `oauth2_redirect_uri` | string | | OAuth2 redirect URI |
+| `oauth2_introspection_endpoint` | string | | Token introspection endpoint URL |
+
+**Example:**
+
+```ini
+[auth]
+type = htpasswd
+htpasswd_filename = /etc/radicale/users
+htpasswd_encryption = bcrypt
+delay = 3
+```
+
+### `[rights]`
+
+Controls authorization and access control.
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `type` | string | `owner_only` | Rights backend. Options: `none`, `denyall`, `owner_only`, `owner_write`, `authenticated`, `from_file` |
+| `file` | string | `/etc/radicale/rights` | Path to rights file (only for `from_file` type) |
+| `permit_delete_collection` | boolean | `True` | Allow collection deletion globally |
+
+**Example:**
+
+```ini
+[rights]
+type = owner_only
+permit_delete_collection = False
+```
+
+### `[storage]`
+
+Controls data persistence.
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `type` | string | `multifilesystem` | Storage backend. Options: `multifilesystem`, `multifilesystem_nolock` |
+| `filesystem_folder` | string | `/var/lib/radicale/collections` | Directory for calendar/contact storage |
+| `max_sync_token_age` | integer | `2592000` | Maximum age of sync tokens in seconds (30 days default) |
+| `hook` | string | | Command to execute after storage changes |
+| `close_lock_file` | boolean | `False` | Close lock file after each operation (for network filesystems) |
+
+**Example:**
+
+```ini
+[storage]
+type = multifilesystem
+filesystem_folder = /var/lib/radicale/collections
+hook = git add -A && (git diff --cached --quiet || git commit -m "Changes by %(user)s")
+```
+
+#### Hook Placeholders
+
+The `hook` option supports these placeholders:
+
+- `%(user)s`: Authenticated username
+- `%(path)s`: Affected collection path
+- `%(to_path)s`: Destination path (for MOVE operations)
+- `%(request)s`: HTTP request method
+- `%(cwd)s`: Current working directory
+
+### `[web]`
+
+Controls web interface.
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `type` | string | `internal` | Web interface backend. Options: `none`, `internal` |
+
+**Example:**
+
+```ini
+[web]
+type = internal
+```
+
+### `[logging]`
+
+Controls logging behavior.
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `level` | string | `warning` | Log level. Options: `debug`, `info`, `warning`, `error`, `critical` |
+| `mask_passwords` | boolean | `True` | Mask passwords in logs |
+| `config` | string | | Path to Python logging configuration file (overrides other logging options) |
+
+#### Debug Flags
+
+Additional boolean options for debug logging:
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `debug` | boolean | `False` | Enable all debug output |
+| `debug_environ` | boolean | `False` | Log environment variables |
+| `debug_headers` | boolean | `False` | Log HTTP headers |
+| `debug_body` | boolean | `False` | Log request/response bodies |
+
+**Example:**
+
+```ini
+[logging]
+level = info
+mask_passwords = True
+```
+
+### `[headers]`
+
+Adds custom HTTP response headers.
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| Any key | string | | Header name and value |
+
+**Example:**
+
+```ini
+[headers]
+Access-Control-Allow-Origin = *
+Strict-Transport-Security = max-age=31536000
+```
+
+### `[metrics]`
+
+Controls Prometheus metrics endpoint (Radicale 3.3.0+).
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `enabled` | boolean | `False` | Enable metrics endpoint |
+| `endpoint` | string | `/metrics` | URL path for metrics |
+
+**Example:**
+
+```ini
+[metrics]
+enabled = True
+endpoint = /metrics
+```
+
+### `[hook]`
+
+Controls event notification hooks.
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `types` | string | | Comma-separated list of hook types to enable. Options: `rabbitmq`, `email` |
+
+#### Hook Type: `rabbitmq`
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `rabbitmq_host` | string | `localhost` | RabbitMQ server hostname |
+| `rabbitmq_port` | integer | `5672` | RabbitMQ server port |
+| `rabbitmq_exchange` | string | `radicale` | Exchange name |
+| `rabbitmq_routing_key` | string | `calendar.change` | Routing key for messages |
+
+#### Hook Type: `email`
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `email_smtp_host` | string | `localhost` | SMTP server hostname |
+| `email_smtp_port` | integer | `25` | SMTP server port |
+| `email_from` | string | `radicale@localhost` | Sender email address |
+| `email_subject` | string | `Calendar Event` | Email subject template |
+
+**Example:**
+
+```ini
+[hook]
+types = email
+
+[hook.email]
+email_smtp_host = smtp.example.com
+email_smtp_port = 587
+email_from = calendar@example.com
+```
+
+## Data Types
+
+### String
+
+Text value without quotes. Whitespace is trimmed from both ends.
+
+```ini
+option = value with spaces
+```
+
+### Integer
+
+Whole number, positive or negative.
+
+```ini
+option = 42
+```
+
+### Boolean
+
+Case-insensitive. Accepts: `true`, `false`, `yes`, `no`, `1`, `0`, `on`, `off`.
+
+```ini
+option = True
+option = yes
+option = 1
+```
+
+All three examples above are equivalent.
+
+## Environment Variables
+
+Configuration options can be overridden with environment variables using this pattern:
+
+```
+RADICALE_<SECTION>_<OPTION>=value
+```
+
+**Examples:**
+
+```bash
+# Override [server] hosts option
+export RADICALE_SERVER_HOSTS="0.0.0.0:5232"
+
+# Override [auth] type option
+export RADICALE_AUTH_TYPE="htpasswd"
+
+# Override [storage] filesystem_folder option
+export RADICALE_STORAGE_FILESYSTEM_FOLDER="/custom/path"
+```
+
+Special environment variables:
+
+- `RADICALE_CONFIG`: Path to configuration file(s)
+- `RADICALE_UMASK`: File creation umask (octal, e.g., `0027`)
+
+## Complete Example
+
+```ini
+# /etc/radicale/config
+
+[server]
+hosts = 0.0.0.0:5232, [::]:5232
+max_connections = 50
+ssl = True
+certificate = /etc/ssl/certs/radicale.pem
+key = /etc/ssl/private/radicale.key
+
+[encoding]
+request = utf-8
+stock = utf-8
+
+[auth]
+type = htpasswd
+htpasswd_filename = /etc/radicale/users
+htpasswd_encryption = bcrypt
+delay = 3
+
+[rights]
+type = owner_only
+
+[storage]
+type = multifilesystem
+filesystem_folder = /var/lib/radicale/collections
+hook = git add -A && (git diff --cached --quiet || git commit -m "%(request)s by %(user)s")
+
+[web]
+type = internal
+
+[logging]
+level = info
+mask_passwords = True
+
+[metrics]
+enabled = True
+endpoint = /metrics
+
+[headers]
+Strict-Transport-Security = max-age=31536000; includeSubDomains
+X-Frame-Options = DENY
+X-Content-Type-Options = nosniff
+```
+
+## Related Documentation
+
+<LinkCard
+  title="CLI Commands"
+  description="Command-line options and flags"
+  href="/reference/cli/"
+/>
+
+<LinkCard
+  title="Configure htpasswd Authentication"
+  description="How-to guide for password authentication"
+  href="/how-to/auth/htpasswd/"
+/>
+
+<LinkCard
+  title="WSGI Deployment"
+  description="Deploying with Gunicorn or uWSGI"
+  href="/how-to/deployment/wsgi/"
+/>

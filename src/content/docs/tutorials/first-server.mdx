@@ -1,0 +1,211 @@
+---
+title: Build Your First Calendar Server
+description: Create a working Radicale server from scratch in 15 minutes
+diataxis_type: tutorial
+sidebar:
+  order: 1
+---
+
+import { Steps, Aside } from '@astrojs/starlight/components';
+
+## What You'll Build
+
+By the end of this tutorial, you'll have a working calendar server running on your computer that you can access from any CalDAV client. You'll create your first calendar, add an event, and sync it with a mobile device or desktop application.
+
+<Aside type="note">
+This tutorial takes approximately 15 minutes and assumes you have Python 3.9 or newer installed.
+</Aside>
+
+## Prerequisites
+
+- Python 3.9+ installed (`python3 --version` to check)
+- Basic command line familiarity
+- A CalDAV client (we'll use your web browser for initial testing)
+
+## Steps
+
+<Steps>
+
+1. **Install Radicale**
+
+   Install Radicale using pip:
+
+   ```bash
+   pip3 install --user radicale
+   ```
+
+   **You should see:**
+   ```
+   Successfully installed radicale-3.5.10 ...
+   ```
+
+   <Aside type="note">
+   The `--user` flag installs Radicale in your home directory, avoiding system-wide changes.
+   </Aside>
+
+2. **Create a configuration directory**
+
+   Create a folder to store your server's configuration and data:
+
+   ```bash
+   mkdir -p ~/.config/radicale
+   mkdir -p ~/.local/share/radicale/collections
+   ```
+
+   These directories will store your configuration file and calendar data.
+
+3. **Create a basic configuration file**
+
+   Create a configuration file that allows access without authentication (perfect for learning):
+
+   ```bash
+   cat > ~/.config/radicale/config << 'EOF'
+   [server]
+   hosts = 127.0.0.1:5232
+
+   [auth]
+   type = none
+
+   [storage]
+   filesystem_folder = ~/.local/share/radicale/collections
+   EOF
+   ```
+
+   This configuration creates a server that:
+   - Listens only on your local computer (127.0.0.1)
+   - Accepts connections without passwords (type = none)
+   - Stores calendar data in your home directory
+
+4. **Start the server**
+
+   Launch Radicale:
+
+   ```bash
+   python3 -m radicale
+   ```
+
+   **You should see:**
+   ```
+   Starting Radicale
+   Listening on 127.0.0.1:5232
+   ```
+
+   <Aside type="note">
+   Leave this terminal window open. The server runs in the foreground, showing you activity in real-time.
+   </Aside>
+
+5. **Access the web interface**
+
+   Open your web browser and navigate to:
+
+   ```
+   http://127.0.0.1:5232/
+   ```
+
+   **You should see:**
+   The Radicale web interface with options to create new calendars and address books.
+
+6. **Create your first calendar**
+
+   In the web interface:
+   - Click "Create new calendar or address book"
+   - Select "Create new calendar"
+   - Enter a name: `personal`
+   - Enter a display name: `My Personal Calendar`
+   - Choose a color (any color you like)
+   - Click "Create"
+
+   **You should see:**
+   Your new calendar listed on the main page.
+
+7. **Verify the calendar was created**
+
+   In a new terminal window (keep the server running), look at the stored files:
+
+   ```bash
+   ls -la ~/.local/share/radicale/collections/
+   ```
+
+   **You should see:**
+   ```
+   drwxr-xr-x  personal/
+   ```
+
+   This is your calendar, stored as a simple folder. Everything in Radicale is just files you can backup, inspect, or manage with standard tools.
+
+8. **Add a test event using curl**
+
+   Create a simple event to verify the server is working:
+
+   ```bash
+   curl -X PUT 'http://127.0.0.1:5232/personal/test-event.ics' \
+     -H 'Content-Type: text/calendar' \
+     -d 'BEGIN:VCALENDAR
+   VERSION:2.0
+   PRODID:-//Example//Example//EN
+   BEGIN:VEVENT
+   UID:test-event-001
+   DTSTART:20260120T100000Z
+   DTEND:20260120T110000Z
+   SUMMARY:My First Event
+   END:VEVENT
+   END:VCALENDAR'
+   ```
+
+   <Aside type="note">
+   This creates an event on January 20, 2026 at 10:00 AM UTC. The dates use the iCalendar format required by CalDAV.
+   </Aside>
+
+9. **View the event in the web interface**
+
+   Refresh your browser at `http://127.0.0.1:5232/personal/`
+
+   **You should see:**
+   Your test event listed with the summary "My First Event"
+
+10. **Connect a CalDAV client**
+
+    The server is now ready for real CalDAV clients. Use these connection details:
+
+    - **Server URL**: `http://127.0.0.1:5232/personal/`
+    - **Username**: (leave empty or use any value)
+    - **Password**: (leave empty or use any value)
+
+    Try connecting with:
+    - **Thunderbird**: Calendar > New Calendar > On the Network > CalDAV
+    - **GNOME Calendar**: Add calendar > CalDAV
+    - **macOS Calendar**: File > New Calendar Subscription
+    - **iOS/Android**: System calendar settings > Add account > CalDAV
+
+    **You should see:**
+    Your "My First Event" appearing in the client application.
+
+</Steps>
+
+## Try It Out
+
+With your client connected, create a new event in the client application. Watch the server terminal - you'll see HTTP requests appear as the client syncs. Then refresh the web interface - your new event appears there too. This is CalDAV synchronization working.
+
+## What You've Learned
+
+You now have a working CalDAV server storing calendar data as plain files on your computer. You've seen how Radicale accepts connections, stores events, and syncs with standard calendar clients. This foundation lets you explore authentication, multiple calendars, and mobile access.
+
+The server uses no authentication, which is fine for learning on your local computer but not safe for real use.
+
+## Next Steps
+
+- [Add password authentication](/tutorials/scheduling/) to secure your server
+- [Set up metrics](/tutorials/metrics/) to monitor server activity
+- [Enable git versioning](/tutorials/versioning/) to track calendar changes over time
+- [Deploy with a reverse proxy](/how-to/deployment/caddy/) for remote access
+
+## Stop the Server
+
+When you're done, return to the terminal window running Radicale and press `Ctrl+C`:
+
+```
+^C
+Stopping Radicale
+```
+
+Your calendar data remains in `~/.local/share/radicale/collections/` - starting the server again will restore everything exactly as you left it.

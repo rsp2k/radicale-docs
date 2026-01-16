@@ -1,0 +1,556 @@
+---
+title: Component Showcase
+description: Demonstration of custom Starlight components for Radicale documentation
+---
+
+import RFCTable from '../../components/RFCTable.astro';
+import ConfigOption from '../../components/ConfigOption.astro';
+import MethodCard from '../../components/MethodCard.astro';
+import SequenceDiagram from '../../components/SequenceDiagram.astro';
+
+This page demonstrates the custom components available for documenting Radicale.
+
+## RFC Compliance Table
+
+The `RFCTable` component displays RFC compliance information with visual progress bars and status badges.
+
+<RFCTable
+  caption="Core CalDAV and CardDAV protocol support"
+  items={[
+    {
+      rfc: "4918",
+      title: "WebDAV",
+      compliance: 98,
+      status: "full",
+      notes: "Complete implementation",
+      link: "/rfc-compliance/4918-webdav/"
+    },
+    {
+      rfc: "4791",
+      title: "CalDAV",
+      compliance: 95,
+      status: "full",
+      notes: "All core features supported",
+      link: "/rfc-compliance/4791-caldav/"
+    },
+    {
+      rfc: "6352",
+      title: "CardDAV",
+      compliance: 92,
+      status: "full",
+      notes: "Complete CardDAV support",
+      link: "/rfc-compliance/6352-carddav/"
+    },
+    {
+      rfc: "6638",
+      title: "CalDAV Scheduling",
+      compliance: 85,
+      status: "partial",
+      notes: "iTIP processing, email delivery",
+      link: "/rfc-compliance/6638-scheduling/"
+    },
+    {
+      rfc: "3253",
+      title: "DeltaV Versioning",
+      compliance: 75,
+      status: "partial",
+      notes: "Basic versioning with git backend",
+      link: "/rfc-compliance/3253-deltav/"
+    },
+    {
+      rfc: "6047",
+      title: "iCalendar iMIP",
+      compliance: 65,
+      status: "partial",
+      notes: "IMAP polling for iTIP messages"
+    },
+    {
+      rfc: "7809",
+      title: "CalDAV Time Zones",
+      compliance: 45,
+      status: "minimal",
+      notes: "Basic timezone database support"
+    },
+    {
+      rfc: "8144",
+      title: "CalDAV Managed Attachments",
+      compliance: 0,
+      status: "planned",
+      notes: "Planned for v3.6.0"
+    }
+  ]}
+/>
+
+## Configuration Options
+
+The `ConfigOption` component provides structured documentation for configuration settings.
+
+### Authentication Example
+
+<ConfigOption
+  section="auth"
+  name="type"
+  type="string"
+  defaultValue="denyall"
+  required={true}
+  version="3.5"
+>
+  <Fragment slot="description">
+    Authentication backend to use. Radicale supports multiple authentication methods:
+
+    - `denyall` - Denies all authentication (secure default since v3.5.0)
+    - `htpasswd` - Use htpasswd file for user credentials
+    - `ldap` - Authenticate against LDAP/Active Directory
+    - `oauth2` - OAuth2 authentication with token validation
+    - `imap` - Authenticate via IMAP server
+    - `pam` - Use system PAM authentication
+    - `http_x_remote_user` - Trust reverse proxy authentication headers
+    - `none` - No authentication (testing only, insecure)
+
+    For production use, configure an appropriate authentication backend.
+  </Fragment>
+  <Fragment slot="example">
+    ```ini
+    [auth]
+    type = htpasswd
+    htpasswd_filename = /etc/radicale/users
+    htpasswd_encryption = bcrypt
+    ```
+  </Fragment>
+  <Fragment slot="notes">
+    - The default `denyall` prevents unauthorized access
+    - Always use strong password hashing (bcrypt or argon2)
+    - Consider rate limiting for public-facing deployments
+  </Fragment>
+</ConfigOption>
+
+### Storage Example
+
+<ConfigOption
+  section="storage"
+  name="filesystem_folder"
+  type="string"
+  defaultValue="~/.var/lib/radicale/collections"
+>
+  <Fragment slot="description">
+    Directory where calendar and contact collections are stored. Each collection
+    is stored as a separate folder containing individual `.ics` or `.vcf` files.
+
+    The storage folder should have restricted permissions to prevent unauthorized access.
+  </Fragment>
+  <Fragment slot="example">
+    ```ini
+    [storage]
+    type = multifilesystem
+    filesystem_folder = /var/lib/radicale/collections
+    hook = git add -A && git commit -m "Auto-commit by %(user)s"
+    ```
+  </Fragment>
+  <Fragment slot="notes">
+    - Recommended permissions: `chmod 750` (owner read/write/execute, group read/execute)
+    - Use storage hooks for automatic git commits or backups
+    - The `.Radicale.cache` folder is auto-generated and safe to delete
+  </Fragment>
+</ConfigOption>
+
+### Deprecated Option Example
+
+<ConfigOption
+  section="web"
+  name="internal_data"
+  type="string"
+  deprecated={true}
+  deprecationNote="This option is deprecated since v3.4.0. Use the new web plugin system instead."
+  version="3.0"
+>
+  <Fragment slot="description">
+    Path to internal web interface data files. This option is no longer supported.
+  </Fragment>
+</ConfigOption>
+
+## HTTP Method Cards
+
+The `MethodCard` component documents HTTP and WebDAV methods.
+
+### Read Operation Example
+
+<MethodCard
+  method="PROPFIND"
+  httpMethod="POST"
+  standard="WebDAV"
+  rfc="4918"
+  variant="read"
+  since="1.0"
+>
+  <Fragment slot="description">
+    Retrieves properties defined on a resource or collection. Used by CalDAV/CardDAV
+    clients to discover calendars, retrieve metadata, and synchronize collections.
+  </Fragment>
+  <Fragment slot="request">
+    - XML body with property names to retrieve
+    - `Depth` header: `0` (resource only), `1` (immediate children), or `infinity`
+    - Optional `Prefer` header for minimal response
+  </Fragment>
+  <Fragment slot="response">
+    - `207 Multi-Status` with requested properties
+    - Each response contains `href`, `propstat`, and property values
+    - Uses WebDAV XML format
+  </Fragment>
+  <Fragment slot="example">
+    ```xml
+    <!-- Request -->
+    PROPFIND /calendars/user/ HTTP/1.1
+    Depth: 1
+    Content-Type: application/xml
+
+    <?xml version="1.0" encoding="utf-8"?>
+    <propfind xmlns="DAV:">
+      <prop>
+        <displayname/>
+        <resourcetype/>
+      </prop>
+    </propfind>
+
+    <!-- Response -->
+    HTTP/1.1 207 Multi-Status
+    Content-Type: application/xml
+
+    <?xml version="1.0" encoding="utf-8"?>
+    <multistatus xmlns="DAV:">
+      <response>
+        <href>/calendars/user/work/</href>
+        <propstat>
+          <prop>
+            <displayname>Work Calendar</displayname>
+            <resourcetype>
+              <collection/>
+              <calendar xmlns="urn:ietf:params:xml:ns:caldav"/>
+            </resourcetype>
+          </prop>
+          <status>HTTP/1.1 200 OK</status>
+        </propstat>
+      </response>
+    </multistatus>
+    ```
+  </Fragment>
+  <Fragment slot="notes">
+    - Radicale supports all standard WebDAV properties
+    - CalDAV-specific properties are in the `urn:ietf:params:xml:ns:caldav` namespace
+    - Use `Depth: 1` for listing collections, `Depth: 0` for single resource
+  </Fragment>
+</MethodCard>
+
+### Write Operation Example
+
+<MethodCard
+  method="MKCALENDAR"
+  standard="CalDAV"
+  rfc="4791"
+  variant="write"
+  since="1.0"
+>
+  <Fragment slot="description">
+    Creates a new calendar collection. This is a CalDAV-specific extension to WebDAV
+    that creates a calendar-type collection with appropriate properties.
+  </Fragment>
+  <Fragment slot="request">
+    - Target URL is the new calendar path
+    - Optional XML body with calendar properties
+    - `Content-Type: application/xml` if body present
+  </Fragment>
+  <Fragment slot="response">
+    - `201 Created` on success
+    - `403 Forbidden` if parent doesn't exist
+    - `405 Method Not Allowed` if collection already exists
+  </Fragment>
+  <Fragment slot="example">
+    ```xml
+    MKCALENDAR /calendars/user/personal/ HTTP/1.1
+    Content-Type: application/xml
+
+    <?xml version="1.0" encoding="utf-8"?>
+    <mkcalendar xmlns="urn:ietf:params:xml:ns:caldav"
+                xmlns:D="DAV:">
+      <set>
+        <prop>
+          <D:displayname>Personal Calendar</D:displayname>
+          <calendar-description>My personal events</calendar-description>
+        </prop>
+      </set>
+    </mkcalendar>
+    ```
+  </Fragment>
+</MethodCard>
+
+### Special Method Example
+
+<MethodCard
+  method="REPORT"
+  standard="CalDAV"
+  rfc="4791"
+  variant="special"
+  since="1.0"
+>
+  <Fragment slot="description">
+    Performs complex queries on calendar collections. Supports various report types
+    including calendar queries, freebusy lookups, and synchronization reports.
+  </Fragment>
+  <Fragment slot="request">
+    - XML body specifying report type and parameters
+    - Common report types:
+      - `calendar-query` - Query events with filters
+      - `calendar-multiget` - Fetch specific events
+      - `free-busy-query` - Check availability
+      - `sync-collection` - Incremental sync
+  </Fragment>
+  <Fragment slot="response">
+    - `207 Multi-Status` with matching resources
+    - Report-specific response format
+    - May include sync-token for incremental updates
+  </Fragment>
+</MethodCard>
+
+### Unimplemented Method Example
+
+<MethodCard
+  method="ACL"
+  standard="WebDAV"
+  rfc="3744"
+  variant="special"
+  implemented={false}
+>
+  <Fragment slot="description">
+    Access Control List method for fine-grained permission management. This method
+    is not currently implemented in Radicale.
+  </Fragment>
+  <Fragment slot="notes">
+    Radicale uses simpler owner-only or file-based rights management instead of
+    full ACL support. See the rights configuration for access control options.
+  </Fragment>
+</MethodCard>
+
+## Sequence Diagrams
+
+The `SequenceDiagram` component uses Mermaid.js to visualize protocol flows.
+
+### Calendar Creation Flow
+
+<SequenceDiagram
+  title="CalDAV Calendar Creation"
+  caption="Client creates a new calendar and adds an event"
+>
+  participant Client
+  participant Server
+  participant Storage
+  participant Hook
+
+  Client->>Server: MKCALENDAR /calendars/user/work/
+  Server->>Storage: Create collection
+  Storage-->>Server: Collection created
+  Server->>Hook: Execute storage hook
+  Hook-->>Server: Hook completed
+  Server-->>Client: 201 Created
+
+  Client->>Server: PUT /calendars/user/work/event1.ics
+  Server->>Storage: Write calendar item
+  Storage-->>Server: Item saved
+  Server->>Hook: Execute storage hook
+  Hook-->>Server: Hook completed
+  Server-->>Client: 201 Created
+</SequenceDiagram>
+
+### Authentication Flow
+
+<SequenceDiagram
+  title="htpasswd Authentication"
+  caption="Client authenticates and accesses a calendar"
+>
+  participant Client
+  participant Server
+  participant Auth
+  participant Storage
+
+  Client->>Server: GET /calendars/user/ (no auth)
+  Server-->>Client: 401 Unauthorized
+
+  Client->>Server: GET /calendars/user/ (Basic Auth)
+  Server->>Auth: Validate credentials
+  Auth->>Auth: Check htpasswd file
+  Auth-->>Server: Authentication successful
+
+  Server->>Storage: Check access rights
+  Storage-->>Server: User authorized
+  Server-->>Client: 200 OK (calendar data)
+</SequenceDiagram>
+
+### CalDAV Scheduling Flow
+
+<SequenceDiagram
+  title="iTIP Meeting Invitation"
+  caption="Organizer invites attendees to a meeting via CalDAV Scheduling"
+>
+  participant Organizer
+  participant Server
+  participant iTIP
+  participant Email
+  participant Attendee
+
+  Organizer->>Server: PUT event with attendees
+  Server->>iTIP: Process iTIP request
+  iTIP->>iTIP: Generate VEVENT REQUEST
+
+  loop For each attendee
+    iTIP->>Email: Send invitation email
+    Email-->>Attendee: Meeting invitation
+  end
+
+  iTIP-->>Server: Scheduling complete
+  Server-->>Organizer: 201 Created
+
+  Note over Attendee,Server: Attendee responds
+
+  Attendee->>Server: PUT event with PARTSTAT
+  Server->>iTIP: Process iTIP reply
+  iTIP->>Email: Send reply to organizer
+  Email-->>Organizer: Attendance response
+  Server-->>Attendee: 200 OK
+</SequenceDiagram>
+
+### Synchronization Flow
+
+<SequenceDiagram
+  title="WebDAV Sync Collection"
+  caption="Efficient incremental synchronization using sync-token"
+>
+  participant Client
+  participant Server
+  participant Storage
+
+  Note over Client: Initial sync
+  Client->>Server: REPORT sync-collection (empty sync-token)
+  Server->>Storage: Get all items
+  Storage-->>Server: Items + sync-token: abc123
+  Server-->>Client: 207 Multi-Status (all items + sync-token)
+
+  Note over Storage: Changes occur
+
+  Note over Client: Incremental sync
+  Client->>Server: REPORT sync-collection (sync-token: abc123)
+  Server->>Storage: Get changes since abc123
+  Storage-->>Server: Modified/deleted items + new sync-token: def456
+  Server-->>Client: 207 Multi-Status (changes only + new sync-token)
+</SequenceDiagram>
+
+## Usage Guidelines
+
+### RFCTable
+
+```astro
+import RFCTable from '../../components/RFCTable.astro';
+
+<RFCTable
+  caption="Optional description"
+  items={[
+    {
+      rfc: "4791",
+      title: "CalDAV",
+      compliance: 95,
+      status: "full" | "partial" | "minimal" | "planned",
+      notes: "Optional implementation notes",
+      link: "/path/to/details/"  // Optional
+    }
+  ]}
+/>
+```
+
+### ConfigOption
+
+```astro
+import ConfigOption from '../../components/ConfigOption.astro';
+
+<ConfigOption
+  section="auth"
+  name="type"
+  type="string"
+  defaultValue="value"
+  required={true}
+  version="3.5"
+>
+  <Fragment slot="description">
+    Description goes here
+  </Fragment>
+  <Fragment slot="example">
+    Example code goes here
+  </Fragment>
+</ConfigOption>
+```
+
+### MethodCard
+
+```astro
+import MethodCard from '../../components/MethodCard.astro';
+
+<MethodCard
+  method="PROPFIND"
+  httpMethod="POST"
+  standard="WebDAV"
+  rfc="4918"
+  variant="read"
+  implemented={true}
+  since="1.0"
+>
+  <Fragment slot="description">Method description</Fragment>
+  <Fragment slot="request">Request details</Fragment>
+  <Fragment slot="response">Response details</Fragment>
+</MethodCard>
+```
+
+### SequenceDiagram
+
+```astro
+import SequenceDiagram from '../../components/SequenceDiagram.astro';
+
+<SequenceDiagram
+  title="Diagram Title"
+  caption="Optional caption"
+  theme="default"
+  height="400px"
+>
+  participant Client
+  participant Server
+  Client->>Server: Request
+  Server-->>Client: Response
+</SequenceDiagram>
+```
+
+## Accessibility Features
+
+All components are built with accessibility in mind:
+
+- Semantic HTML structure with proper heading hierarchy
+- ARIA labels and roles where appropriate
+- Keyboard navigation support
+- Screen reader friendly tables and diagrams
+- High contrast support in both light and dark modes
+- Responsive design for mobile and desktop
+- Focus indicators for interactive elements
+
+## Theme Support
+
+Components automatically adapt to Starlight's theme:
+
+- Use Starlight CSS custom properties
+- Respect light/dark mode preferences
+- Match Starlight's color system
+- Maintain consistent typography
+- Support system preference detection
+
+## Performance
+
+Components are optimized for performance:
+
+- Minimal JavaScript (only SequenceDiagram uses external library)
+- CSS-based animations and transitions
+- Lazy loading for Mermaid.js
+- Efficient rendering with Astro's static generation
+- Mobile-optimized layouts

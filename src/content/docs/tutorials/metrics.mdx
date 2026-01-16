@@ -1,0 +1,24 @@
+---
+title: Metrics Quick Start
+description: Learn to set up Prometheus metrics monitoring in 5 minutes
+diataxis_type: tutorial
+difficulty: beginner
+time: 15 minutes
+---
+
+In this tutorial, you will metrics quick start.
+
+### Metrics Quick Start
+
+Enable the metrics endpoint in your configuration:
+
+```ini
+[metrics]
+enabled = True
+endpoint = /.metrics
+```text
+Access metrics at `http://localhost:5232/.metrics`
+
+```bash
+curl http://localhost:5232/.metrics
+```text

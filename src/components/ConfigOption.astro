@@ -1,0 +1,330 @@
+---
+/**
+ * ConfigOption Component
+ *
+ * Documents a configuration option with structured information including
+ * name, type, default value, description, and examples.
+ *
+ * @example
+ * <ConfigOption
+ *   section="auth"
+ *   name="type"
+ *   type="string"
+ *   defaultValue="denyall"
+ *   required={true}
+ * >
+ *   <Fragment slot="description">
+ *     Authentication backend to use. Options: htpasswd, ldap, oauth2, none, denyall
+ *   </Fragment>
+ *   <Fragment slot="example">
+ *     ```ini
+ *     [auth]
+ *     type = htpasswd
+ *     htpasswd_filename = /etc/radicale/users
+ *     htpasswd_encryption = bcrypt
+ *     ```
+ *   </Fragment>
+ * </ConfigOption>
+ */
+
+interface Props {
+  section: string;
+  name: string;
+  type: 'string' | 'integer' | 'boolean' | 'float' | 'list';
+  defaultValue?: string;
+  required?: boolean;
+  version?: string;
+  deprecated?: boolean;
+  deprecationNote?: string;
+}
+
+const {
+  section,
+  name,
+  type,
+  defaultValue,
+  required = false,
+  version,
+  deprecated = false,
+  deprecationNote,
+} = Astro.props;
+
+const fullName = `${section}.${name}`;
+const anchorId = fullName.replace(/\./g, '-');
+---
+
+<div class="config-option" id={anchorId}>
+  <div class="config-header">
+    <div class="config-title-row">
+      <h3 class="config-name">
+        <code>{fullName}</code>
+      </h3>
+      <div class="config-badges">
+        {required && (
+          <span class="badge badge-required">Required</span>
+        )}
+        {deprecated && (
+          <span class="badge badge-deprecated">Deprecated</span>
+        )}
+        {version && (
+          <span class="badge badge-version">v{version}+</span>
+        )}
+      </div>
+    </div>
+    <div class="config-metadata">
+      <span class="metadata-item">
+        <span class="metadata-label">Type:</span>
+        <code class="metadata-value">{type}</code>
+      </span>
+      {defaultValue !== undefined && (
+        <span class="metadata-item">
+          <span class="metadata-label">Default:</span>
+          <code class="metadata-value">{defaultValue}</code>
+        </span>
+      )}
+    </div>
+  </div>
+
+  <div class="config-body">
+    {deprecated && deprecationNote && (
+      <div class="deprecation-notice">
+        <strong>Deprecation Notice:</strong> {deprecationNote}
+      </div>
+    )}
+
+    <div class="config-description">
+      <slot name="description" />
+    </div>
+
+    {Astro.slots.has('example') && (
+      <div class="config-example">
+        <h4 class="example-title">Example</h4>
+        <slot name="example" />
+      </div>
+    )}
+
+    {Astro.slots.has('notes') && (
+      <div class="config-notes">
+        <h4 class="notes-title">Notes</h4>
+        <slot name="notes" />
+      </div>
+    )}
+  </div>
+</div>
+
+<style>
+  .config-option {
+    margin: 2rem 0;
+    border: 1px solid var(--sl-color-gray-5);
+    border-radius: 0.5rem;
+    background: var(--sl-color-bg-nav);
+    overflow: hidden;
+    scroll-margin-top: 5rem;
+  }
+
+  .config-header {
+    padding: 1.25rem 1.5rem;
+    background: var(--sl-color-gray-6);
+    border-bottom: 1px solid var(--sl-color-gray-5);
+  }
+
+  .config-title-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 0.75rem;
+    flex-wrap: wrap;
+  }
+
+  .config-name {
+    margin: 0;
+    font-size: var(--sl-text-lg);
+    font-weight: 600;
+    color: var(--sl-color-white);
+  }
+
+  .config-name code {
+    font-family: var(--sl-font-mono);
+    font-size: var(--sl-text-base);
+    background: transparent;
+    padding: 0;
+    color: var(--sl-color-white);
+  }
+
+  .config-badges {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+
+  .badge {
+    display: inline-block;
+    padding: 0.25rem 0.625rem;
+    border-radius: 0.25rem;
+    font-size: var(--sl-text-xs);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.025em;
+  }
+
+  .badge-required {
+    background: var(--sl-color-red-high);
+    color: var(--sl-color-red-low);
+  }
+
+  .badge-deprecated {
+    background: var(--sl-color-orange-high);
+    color: var(--sl-color-orange-low);
+  }
+
+  .badge-version {
+    background: var(--sl-color-blue-high);
+    color: var(--sl-color-blue-low);
+  }
+
+  .config-metadata {
+    display: flex;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+    font-size: var(--sl-text-sm);
+  }
+
+  .metadata-item {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+  }
+
+  .metadata-label {
+    color: var(--sl-color-gray-3);
+    font-weight: 500;
+  }
+
+  .metadata-value {
+    font-family: var(--sl-font-mono);
+    font-size: var(--sl-text-sm);
+    padding: 0.125rem 0.375rem;
+    background: var(--sl-color-gray-5);
+    border-radius: 0.25rem;
+    color: var(--sl-color-text);
+  }
+
+  .config-body {
+    padding: 1.5rem;
+  }
+
+  .deprecation-notice {
+    padding: 1rem;
+    margin-bottom: 1rem;
+    background: var(--sl-color-orange-high);
+    color: var(--sl-color-orange-low);
+    border-left: 4px solid var(--sl-color-orange);
+    border-radius: 0.25rem;
+    font-size: var(--sl-text-sm);
+  }
+
+  .deprecation-notice strong {
+    display: block;
+    margin-bottom: 0.25rem;
+  }
+
+  .config-description {
+    color: var(--sl-color-gray-2);
+    line-height: 1.7;
+  }
+
+  .config-description :global(p:first-child) {
+    margin-top: 0;
+  }
+
+  .config-description :global(p:last-child) {
+    margin-bottom: 0;
+  }
+
+  .config-description :global(code) {
+    font-family: var(--sl-font-mono);
+    font-size: 0.9em;
+    padding: 0.125rem 0.375rem;
+    background: var(--sl-color-gray-6);
+    border-radius: 0.25rem;
+  }
+
+  .config-description :global(ul),
+  .config-description :global(ol) {
+    margin: 0.75rem 0;
+    padding-left: 1.5rem;
+  }
+
+  .config-description :global(li) {
+    margin: 0.25rem 0;
+  }
+
+  .config-example,
+  .config-notes {
+    margin-top: 1.5rem;
+  }
+
+  .example-title,
+  .notes-title {
+    font-size: var(--sl-text-sm);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--sl-color-gray-3);
+    margin-bottom: 0.75rem;
+  }
+
+  .config-example :global(pre) {
+    margin-top: 0;
+  }
+
+  .config-notes :global(p:first-child) {
+    margin-top: 0;
+  }
+
+  .config-notes :global(p:last-child) {
+    margin-bottom: 0;
+  }
+
+  /* Mobile responsive */
+  @media (max-width: 640px) {
+    .config-header {
+      padding: 1rem;
+    }
+
+    .config-body {
+      padding: 1rem;
+    }
+
+    .config-title-row {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 0.75rem;
+    }
+
+    .config-name {
+      font-size: var(--sl-text-base);
+    }
+
+    .config-metadata {
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+  }
+
+  /* Link to anchor */
+  .config-option:target {
+    border-color: var(--sl-color-accent);
+    box-shadow: 0 0 0 3px var(--sl-color-accent-high);
+  }
+
+  /* Dark mode adjustments */
+  :root[data-theme='dark'] .config-header {
+    background: var(--sl-color-gray-5);
+  }
+
+  :root[data-theme='dark'] .metadata-value {
+    background: var(--sl-color-gray-6);
+  }
+</style>

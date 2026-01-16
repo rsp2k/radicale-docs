@@ -1,0 +1,319 @@
+---
+/**
+ * SequenceDiagram Component
+ *
+ * Renders sequence diagrams using Mermaid.js for visualizing protocol flows,
+ * authentication sequences, and API interactions.
+ *
+ * @example
+ * <SequenceDiagram
+ *   title="CalDAV Calendar Creation"
+ *   caption="Client creates a new calendar collection"
+ * >
+ *   Client->>Server: MKCALENDAR /calendars/user/work/
+ *   Server->>Storage: Create collection
+ *   Storage-->>Server: Collection created
+ *   Server-->>Client: 201 Created
+ * </SequenceDiagram>
+ */
+
+interface Props {
+  title?: string;
+  caption?: string;
+  theme?: 'default' | 'dark' | 'forest' | 'neutral';
+  height?: string;
+}
+
+const {
+  title,
+  caption,
+  theme = 'default',
+  height = 'auto',
+} = Astro.props;
+
+// Generate unique ID for this diagram
+const diagramId = `diagram-${Math.random().toString(36).substr(2, 9)}`;
+
+// Get the diagram content from the slot
+const diagramContent = await Astro.slots.render('default');
+const cleanContent = diagramContent.trim();
+---
+
+<div class="sequence-diagram-wrapper">
+  {title && <h4 class="diagram-title">{title}</h4>}
+
+  <div class="diagram-container" style={height !== 'auto' ? `height: ${height};` : ''}>
+    <div class="mermaid-wrapper">
+      <pre class="mermaid" id={diagramId} data-theme={theme}>
+sequenceDiagram
+    {cleanContent}
+      </pre>
+    </div>
+  </div>
+
+  {caption && <p class="diagram-caption">{caption}</p>}
+</div>
+
+<script>
+  // Dynamically import and initialize Mermaid
+  import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+
+  // Detect theme from Starlight
+  const getStarlightTheme = () => {
+    const htmlEl = document.documentElement;
+    return htmlEl.getAttribute('data-theme') === 'dark' ? 'dark' : 'default';
+  };
+
+  // Initialize Mermaid with theme
+  const initMermaid = () => {
+    const starlightTheme = getStarlightTheme();
+
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: starlightTheme === 'dark' ? 'dark' : 'default',
+      securityLevel: 'loose',
+      sequence: {
+        diagramMarginX: 10,
+        diagramMarginY: 10,
+        actorMargin: 50,
+        width: 150,
+        height: 65,
+        boxMargin: 10,
+        boxTextMargin: 5,
+        noteMargin: 10,
+        messageMargin: 35,
+        mirrorActors: true,
+        useMaxWidth: true,
+        wrap: true,
+      },
+      flowchart: {
+        useMaxWidth: true,
+        htmlLabels: true,
+        curve: 'basis',
+      },
+      fontFamily: 'var(--sl-font)',
+    });
+
+    // Render diagrams
+    mermaid.run({
+      querySelector: '.mermaid',
+    });
+  };
+
+  // Initialize on load
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initMermaid);
+  } else {
+    initMermaid();
+  }
+
+  // Re-render on theme change
+  const observer = new MutationObserver((mutations) => {
+    mutations.forEach((mutation) => {
+      if (mutation.attributeName === 'data-theme') {
+        // Re-initialize with new theme
+        document.querySelectorAll('.mermaid').forEach((el) => {
+          // Remove any existing SVG
+          const svg = el.querySelector('svg');
+          if (svg) {
+            svg.remove();
+          }
+          // Show the original pre content
+          el.style.display = 'block';
+        });
+        initMermaid();
+      }
+    });
+  });
+
+  observer.observe(document.documentElement, {
+    attributes: true,
+    attributeFilter: ['data-theme'],
+  });
+</script>
+
+<style>
+  .sequence-diagram-wrapper {
+    margin: 2rem 0;
+  }
+
+  .diagram-title {
+    margin: 0 0 1rem 0;
+    font-size: var(--sl-text-lg);
+    font-weight: 600;
+    color: var(--sl-color-white);
+  }
+
+  .diagram-container {
+    position: relative;
+    overflow: auto;
+    border: 1px solid var(--sl-color-gray-5);
+    border-radius: 0.5rem;
+    background: var(--sl-color-bg);
+    padding: 1.5rem;
+  }
+
+  .mermaid-wrapper {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 200px;
+  }
+
+  .mermaid {
+    margin: 0;
+    padding: 0;
+    background: transparent;
+    border: none;
+    font-family: var(--sl-font);
+    text-align: center;
+    width: 100%;
+  }
+
+  /* Mermaid diagram styling overrides */
+  .mermaid :global(svg) {
+    max-width: 100%;
+    height: auto;
+  }
+
+  .mermaid :global(.actor) {
+    fill: var(--sl-color-gray-6);
+    stroke: var(--sl-color-gray-4);
+  }
+
+  .mermaid :global(.actor-line) {
+    stroke: var(--sl-color-gray-5);
+  }
+
+  .mermaid :global(.messageLine0),
+  .mermaid :global(.messageLine1) {
+    stroke: var(--sl-color-blue);
+  }
+
+  .mermaid :global(.messageText) {
+    fill: var(--sl-color-text);
+    font-family: var(--sl-font);
+  }
+
+  .mermaid :global(.labelText) {
+    fill: var(--sl-color-white);
+    font-family: var(--sl-font);
+  }
+
+  .mermaid :global(.loopText),
+  .mermaid :global(.loopLine),
+  .mermaid :global(.labelBox) {
+    fill: var(--sl-color-gray-6);
+    stroke: var(--sl-color-gray-4);
+  }
+
+  .mermaid :global(.note) {
+    fill: var(--sl-color-blue-high);
+    stroke: var(--sl-color-blue);
+  }
+
+  .mermaid :global(.noteText) {
+    fill: var(--sl-color-blue-low);
+  }
+
+  .mermaid :global(.activation0),
+  .mermaid :global(.activation1),
+  .mermaid :global(.activation2) {
+    fill: var(--sl-color-green-high);
+    stroke: var(--sl-color-green);
+  }
+
+  .diagram-caption {
+    margin: 0.75rem 0 0 0;
+    font-size: var(--sl-text-sm);
+    color: var(--sl-color-gray-3);
+    font-style: italic;
+    text-align: center;
+  }
+
+  /* Loading state */
+  .mermaid-wrapper::before {
+    content: 'Loading diagram...';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: var(--sl-color-gray-4);
+    font-size: var(--sl-text-sm);
+    opacity: 0;
+    animation: fadeIn 0.3s ease-in 0.5s forwards;
+  }
+
+  @keyframes fadeIn {
+    to {
+      opacity: 1;
+    }
+  }
+
+  /* Hide loading text once diagram renders */
+  .mermaid-wrapper:has(svg)::before {
+    display: none;
+  }
+
+  /* Mobile responsive */
+  @media (max-width: 640px) {
+    .diagram-container {
+      padding: 1rem;
+    }
+
+    .mermaid {
+      font-size: 0.875rem;
+    }
+
+    /* Allow horizontal scrolling on mobile */
+    .diagram-container {
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+  }
+
+  /* Dark mode adjustments */
+  :root[data-theme='dark'] .diagram-container {
+    background: var(--sl-color-black);
+  }
+
+  :root[data-theme='dark'] .mermaid :global(.actor) {
+    fill: var(--sl-color-gray-5);
+    stroke: var(--sl-color-gray-3);
+  }
+
+  :root[data-theme='dark'] .mermaid :global(.messageLine0),
+  :root[data-theme='dark'] .mermaid :global(.messageLine1) {
+    stroke: var(--sl-color-blue-high);
+  }
+
+  :root[data-theme='dark'] .mermaid :global(.note) {
+    fill: var(--sl-color-blue-low);
+    stroke: var(--sl-color-blue-high);
+  }
+
+  /* Print styles */
+  @media print {
+    .diagram-container {
+      border: 1px solid #ccc;
+      break-inside: avoid;
+    }
+
+    .mermaid :global(svg) {
+      max-width: 100%;
+      page-break-inside: avoid;
+    }
+  }
+</style>
+
+<style is:global>
+  /* Global styles for Mermaid in Starlight context */
+  .mermaid svg {
+    font-family: var(--sl-font);
+  }
+
+  /* Ensure diagrams respect container width */
+  .mermaid .mermaid-diagram {
+    max-width: 100%;
+  }
+</style>
